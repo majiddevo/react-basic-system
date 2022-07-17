@@ -5,9 +5,6 @@ import {
   Col,
   Container,
   CardHeader,
-  Nav,
-  NavItem,
-  NavLink,
   Row,
   Modal,
   ModalHeader,
@@ -20,7 +17,6 @@ import {
 import * as moment from "moment";
 import { Link } from "react-router-dom";
 import Select from "react-select";
-import classnames from "classnames";
 import Flatpickr from "react-flatpickr";
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
 import TableContainer from "../../../Components/Common/TableContainer";
@@ -47,6 +43,42 @@ import Loader from "../../../Components/Common/Loader";
 import MsgToast from "../../../Components/Common/MsgToast";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+
+const applyFilters = (projects, query, filters) => {
+  return projects.filter((project) => {
+    let matches = true;
+
+    if (query) {
+      const properties = ['name'];
+      let containsQuery = false;
+
+      properties.forEach((property) => {
+        if (project[property].toLowerCase().includes(query.toLowerCase())) {
+          containsQuery = true;
+        }
+      });
+
+      if (filters.status && project.status !== filters.status) {
+        matches = false;
+      }
+
+      if (!containsQuery) {
+        matches = false;
+      }
+    }
+
+    Object.keys(filters).forEach((key) => {
+      const value = filters[key];
+
+      if (value && project[key] !== value) {
+        matches = false;
+      }
+    });
+
+    return matches;
+  });
+};
 
 const EcommerceOrders = () => {
   const [orderStatus, setorderStatus] = useState(null);
@@ -82,7 +114,6 @@ const EcommerceOrders = () => {
   const orderstatus = [
     {
       options: [
-        { label: "Status", value: "Status" },
         { label: "All", value: "All" },
         { label: "Pending", value: "Pending" },
         { label: "Inprogress", value: "Inprogress" },
@@ -97,7 +128,6 @@ const EcommerceOrders = () => {
   const orderpayement = [
     {
       options: [
-        { label: "Select Payment", value: "Select Payment" },
         { label: "All", value: "All" },
         { label: "Mastercard", value: "Mastercard" },
         { label: "Paypal", value: "Paypal" },
@@ -147,12 +177,22 @@ const EcommerceOrders = () => {
 
   const [isEdit, setIsEdit] = useState(false);
 
-  function handleorderStatus(orderStatus) {
-    setorderStatus(orderStatus);
+  function filterOrderStatus(orderStatus) {
+    let filteredOrders = orders;
+    if (orderStatus.toLowerCase() !== "all") {
+      filteredOrders = orders.filter((order) => order.status === orderStatus);
+    }
+    // setorderStatus(orderStatus);
+    setOrderList(filteredOrders);
   }
 
-  function handleorderPayement(orderPayement) {
-    setorderPayement(orderPayement);
+  function filterOrderPayement(orderPayementType) {
+    let filteredOrders = orders;
+    if (orderPayementType.toLowerCase() !== "all") {
+      filteredOrders = orders.filter((order) => order.payment === orderPayementType);
+    }
+    // setorderPayement(orderPayement);
+    setOrderList(filteredOrders);
   }
 
   const [deleteModal, setDeleteModal] = useState(false);
@@ -181,15 +221,12 @@ const EcommerceOrders = () => {
     if (!isEmpty(orders)) setOrderList(orders);
   }, [orders]);
 
-  const toggleTab = (tab, type) => {
-    if (activeTab !== tab) {
-      setActiveTab(tab);
+  const filterOrderByCustomer = (customer) => {
       let filteredOrders = orders;
-      if (type !== "all") {
-        filteredOrders = orders.filter((order) => order.status === type);
+      if (customer !== "all") {
+        filteredOrders = orders.filter((order) => order.customer.toLowerCase().includes(customer.toLowerCase()));
       }
       setOrderList(filteredOrders);
-    }
   };
 
   // validation
@@ -329,7 +366,7 @@ const EcommerceOrders = () => {
       {
         Header: "Order Id",
         accessor: "orderId",
-        filterable: false,
+        disableFilters:true,
         Cell: (cell) => {
           return <Link to="/apps-ecommerce-order-details" className="fw-medium link-primary">{cell.value}</Link>;
         },
@@ -338,15 +375,18 @@ const EcommerceOrders = () => {
         Header: "Customer",
         accessor: "customer",
         filterable: false,
+        disableFilters:true
       },
       {
         Header: "Product",
+        disableFilters:true,
         accessor: "product",
         filterable: false,
       },
       {
         Header: "Order Date",
         accessor: "orderDate",
+        disableFilters:true,
         Cell: (order) => (
           <>
             {handleValidDate(order.row.original.orderDate)},
@@ -357,16 +397,17 @@ const EcommerceOrders = () => {
       {
         Header: "Amount",
         accessor: "amount",
-        filterable: false,
+        disableFilters:true,
       },
       {
         Header: "Payment Method",
         accessor: "payment",
-        filterable: false,
+        disableFilters:true,
       },
       {
         Header: 'Delivery Status',
         accessor: 'status',
+        disableFilters:true,
         Cell: (cell) => {
           switch (cell.value) {
             case "Pending":
@@ -519,7 +560,7 @@ const EcommerceOrders = () => {
                   </div>
                 </div>
               </CardHeader>
-              <CardBody className="border border-dashed border-end-0 border-start-0">
+              <CardBody className="border border-dashed border-end-0 border-start-0  mb-3">
                 <form>
                   <Row className="g-3">
                     <Col sm={6} className="col-xxl-5">
@@ -527,6 +568,7 @@ const EcommerceOrders = () => {
                         <input
                           type="text"
                           className="form-control search"
+                          onChange={(e) => { filterOrderByCustomer(e.target.value)}}
                           placeholder="Search for order ID, customer, order status or something..."
                         />
                         <i className="ri-search-line search-icon"></i>
@@ -553,9 +595,8 @@ const EcommerceOrders = () => {
                       <div>
                         <Select
                           value={orderStatus}
-                          onChange={() => {
-                            handleorderStatus();
-                          }}
+                          placeholder="Filter By Status"
+                          onChange={(e) => { filterOrderStatus(e.value)}}
                           options={orderstatus}
                           name="choices-single-default"
                           id="idStatus"
@@ -567,10 +608,9 @@ const EcommerceOrders = () => {
                       <div>
                         <Select
                           value={orderPayement}
-                          onChange={() => {
-                            handleorderPayement();
-                          }}
+                          onChange={(e) => { filterOrderPayement(e.value) }}
                           options={orderpayement}
+                          placeholder="Filter By Payment"
                           name="choices-payment-default"
                           id="idPayment"
                         ></Select>
@@ -590,90 +630,7 @@ const EcommerceOrders = () => {
                 </form>
               </CardBody>
               <CardBody className="pt-0">
-                <div>
-                  <Nav
-                    className="nav-tabs nav-tabs-custom nav-success mb-3"
-                    role="tablist"
-                  >
-                    <NavItem>
-                      <NavLink
-                        className={classnames(
-                          { active: activeTab === "1" },
-                          "fw-semibold"
-                        )}
-                        onClick={() => {
-                          toggleTab("1", "all");
-                        }}
-                        href="#"
-                      >
-                        <i className="ri-store-2-fill me-1 align-bottom"></i>{" "}
-                        All Orders
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink
-                        className={classnames(
-                          { active: activeTab === "2" },
-                          "fw-semibold"
-                        )}
-                        onClick={() => {
-                          toggleTab("2", "Delivered");
-                        }}
-                        href="#"
-                      >
-                        <i className="ri-checkbox-circle-line me-1 align-bottom"></i>{" "}
-                        Delivered
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink
-                        className={classnames(
-                          { active: activeTab === "3" },
-                          "fw-semibold"
-                        )}
-                        onClick={() => {
-                          toggleTab("3", "Pickups");
-                        }}
-                        href="#"
-                      >
-                        <i className="ri-truck-line me-1 align-bottom"></i>{" "}
-                        Pickups{" "}
-                        <span className="badge bg-danger align-middle ms-1">
-                          2
-                        </span>
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink
-                        className={classnames(
-                          { active: activeTab === "4" },
-                          "fw-semibold"
-                        )}
-                        onClick={() => {
-                          toggleTab("4", "Returns");
-                        }}
-                        href="#"
-                      >
-                        <i className="ri-arrow-left-right-fill me-1 align-bottom"></i>{" "}
-                        Returns
-                      </NavLink>
-                    </NavItem>
-                    <NavItem>
-                      <NavLink
-                        className={classnames(
-                          { active: activeTab === "5" },
-                          "fw-semibold"
-                        )}
-                        onClick={() => {
-                          toggleTab("5", "Cancelled");
-                        }}
-                        href="#"
-                      >
-                        <i className="ri-close-circle-line me-1 align-bottom"></i>{" "}
-                        Cancelled
-                      </NavLink>
-                    </NavItem>
-                  </Nav>
+                <div className="dataTable">
                   {isOrderSuccess && orderList.length ? (
                     <TableContainer
                       columns={columns}

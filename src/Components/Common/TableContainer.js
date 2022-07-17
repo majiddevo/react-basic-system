@@ -10,7 +10,7 @@ import {
   usePagination,
 } from "react-table";
 import { Table, Row, Col, Button, Input } from "reactstrap";
-import { DefaultColumnFilter } from "./filters";
+import { Filter, DefaultColumnFilter } from "./filters";
 
 // Define a default UI for filtering
 const GlobalFilter = ({
@@ -119,6 +119,7 @@ const TableContainer = ({
     const page = event.target.value ? Number(event.target.value) - 1 : 0;
     gotoPage(page);
   };
+
   return (
     <Fragment>
       {isGlobalSearch ||
